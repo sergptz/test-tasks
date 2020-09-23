@@ -1,0 +1,200 @@
+<html>
+<script src="https://unpkg.com/vue@2.0.1/dist/vue.js"></script>
+<div id="app">
+  <div class="container">
+    <div class="timer">
+      <div class="time-part"> <span :class="{loading}"></span> {{hours}}</div>
+      <div class="time-part"> <span :class="{loading}"></span> {{minutes}}</div>
+      <div class="time-part"> <span :class="{loading}"></span> {{seconds}}</div>
+    </div>
+    <div class="locales-block">
+      <button :class="{btn: 1, active: currentTz == 'America/New_York'}" @click="setTimeZone('America/New_York')">NEW YORK</button>
+      <button :class="{btn: 1, active: currentTz == 'Europe/Moscow'}" @click="setTimeZone('Europe/Moscow')">MOSCOW</button>
+    </div>
+  </div>
+</div>
+</html>
+
+<script>
+new Vue({
+  el: '#app',
+  data: {
+  	currentTz: 'Europe/Moscow',
+    dateObject: null,
+    unixtime: null,
+    hours: null,
+    minutes: null,
+    seconds: null,
+    timezonesOffsetsInMin: {
+      'Europe/Moscow': null,
+      'America/New_York': null
+    }
+  },
+  methods: {
+  	getDateAndTimezonesOffsets() {
+      const moscowTz = 'Europe/Moscow'
+      const newYorkTz = 'America/New_York'
+      fetch(`https://worldtimeapi.org/api/timezone/${moscowTz}`)
+      	.then(response => response.json())
+        .then(data => {
+					this.dateObject = new Date(data.datetime)
+          this.unixtime = data.unixtime
+          this.runTimer()
+          this.runTimeRedrawer()
+          this.timezonesOffsetsInMin[moscowTz] = this.transformFormattedHoursToMinutes(data.utc_offset)
+        })
+
+    	fetch(`https://worldtimeapi.org/api/timezone/${newYorkTz}`)
+      	.then(response => response.json())
+        .then(data => {
+          this.timezonesOffsetsInMin[newYorkTz] = this.transformFormattedHoursToMinutes(data.utc_offset)
+        })
+    },
+    transformFormattedHoursToMinutes(hours) {
+      const offsetIsNegative = hours[0] === '-'
+      hours = hours.slice(1)
+      let [h, m] = hours.split(':')
+      let offset = +h * 60 + +m
+      if (offsetIsNegative) offset *= -1
+      return offset
+    },
+    runTimer() {
+    	setInterval(() => this.addSecondsToTimer(1), 1000)
+    },
+    addSecondsToTimer(seconds) {
+    	this.dateObject.setSeconds(this.dateObject.getSeconds() + seconds)
+    },
+    addMinutesToTimer(minutes) {
+    	this.dateObject.setMinutes(this.dateObject.getMinutes() + minutes)
+    },
+    runTimeRedrawer() {
+    	setInterval(() => this.redrawTime(), 1000)
+    },    
+    redrawTime() {
+      if (!this.dateObject) return
+      let hours = this.dateObject.getHours()
+      let minutes = this.dateObject.getMinutes()
+      let seconds = this.dateObject.getSeconds()
+      this.hours = this.formatTimePart(hours)
+      this.minutes = this.formatTimePart(minutes)
+      this.seconds = this.formatTimePart(seconds)
+    },
+    formatTimePart(number) {
+      return (number.toString().length == 1 ? '0' : '') + number
+    },
+    setTimeZone(newTz) {
+      const oldTz = this.currentTz
+      this.currentTz = newTz
+      this.updateTime(oldTz, newTz)
+    },
+    updateTime(oldTz, newTz) {
+      let differenceWithCurrentTimeInMin = this.timezonesOffsetsInMin[newTz] - this.timezonesOffsetsInMin[oldTz]
+      this.addMinutesToTimer(differenceWithCurrentTimeInMin)
+      this.redrawTime()
+    }
+  },
+  computed: {
+    loading() {
+      return this.hours === null
+    }
+  },
+  mounted() {
+  	this.getDateAndTimezonesOffsets()
+  }
+})
+</script>
+
+<style>
+.timer {
+  display: flex;
+  flex-direction: row;
+}
+
+.time-part {
+  margin-left: 5px;
+  width: 40px;
+  height: 60px;
+  line-height: 60px;
+  text-align: center;
+  background: linear-gradient(270deg, #4f56ff, #48a3f8);
+  font-size: 1.5rem;
+  color: white;
+  font-weight: 800;  
+  background-size: 400%;
+  -webkit-animation: PlayOfColors 10s ease infinite;
+  -moz-animation: PlayOfColors 10s ease infinite;
+  animation: PlayOfColors 10s ease infinite;
+  border-radius: 5%;
+  -webkit-box-shadow: 4px 4px 3px 0px rgba(0,0,0,0.75);
+  -moz-box-shadow: 4px 4px 3px 0px rgba(0,0,0,0.75);
+  box-shadow: 4px 4px 3px 0px rgba(0, 0, 0, 0.75);
+  user-select: none;
+}
+
+.locales-block {
+  margin-top: 20px;
+}
+
+.btn {
+  padding: 12px 0 12px 0;
+  width: 150px;
+  border-radius: 10%;
+  box-shadow: inset 10px;
+  background-color: rgb(108, 139, 240);
+  cursor: pointer;
+  font-size: 16px;
+  color: white;
+  font-weight: 800;
+  user-select: none;
+
+}
+
+.btn.active {
+  -webkit-box-shadow: 4px 4px 3px 0px rgba(0,0,0,0.75);
+  -moz-box-shadow: 4px 4px 3px 0px rgba(0,0,0,0.75);
+  box-shadow: 4px 4px 3px 0px rgba(0, 0, 0, 0.75);
+}
+
+.loading:after {
+  content: " ";
+  display: block;
+  margin: 15px auto;
+  width:  20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  border-color: #fff transparent #fff transparent;
+  animation: Loading 1.2s linear infinite;
+}
+
+@keyframes Loading {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@-webkit-keyframes PlayOfColors {
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+@-moz-keyframes PlayOfColors {
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+@keyframes PlayOfColors {
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+</style>
